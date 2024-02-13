@@ -6,7 +6,7 @@ use std::{fs, io};
 use glam::DVec3;
 const ASPECT_RATIO: f64 = 16.0/9.0;
 
-const IMAGE_WIDTH: u32 = 400;
+const IMAGE_WIDTH: u32 = 1280;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64/ASPECT_RATIO) as u32;
 const MAX_VALUE: u8 = 255;
 
@@ -41,7 +41,7 @@ fn main() -> io::Result<()> {
                 direction: ray_direction,
             };
            let pixel_color = ray.color() * 255.0; 
-           format!("{} {} {}", pixel_color.x as u8, pixel_color.y as u8, pixel_color.z as u8)
+           format!("{} {} {}", pixel_color.x , pixel_color.y , pixel_color.z )
         })
         .join("\n");
     println!("{}", pixels);
@@ -70,20 +70,27 @@ impl Ray {
         self.origin + t * self.direction
     }
     fn color(&self) -> DVec3 {
-        if hit_sphere(&DVec3::new(0.0, 0.0, -1.0), 0.5, self) {
-            return DVec3::new(1.0, 0.0, 0.0);
-        }
+    let t = hit_sphere(&DVec3::new(0.0, 0.0, -10.0), 4., self); // Dereference the &self parameter
+        if t > 0. {
+            let N = (self.at(t) - DVec3::new(0.0, 0.0, -10.0)).normalize();
+            return 0.5 * (N + 1.0)
+        };
         let unit_direction: DVec3 =
             self.direction.normalize();
         let a = 0.5 * (unit_direction.y + 1.0);
         return(1.0 - a) * DVec3::new(1.0, 1.0, 1.0) + a * DVec3::new(0.5, 0.7, 1.0);
     }
+
 }
-fn hit_sphere(center: &DVec3, radius: f64, ray: &Ray) -> bool {
+fn hit_sphere( center: &DVec3, radius: f64, ray: &Ray) -> f64 {
     let oc: DVec3 = ray.origin - *center;
     let a = ray.direction.dot(ray.direction);
     let b = 2.0 * oc.dot(ray.direction);
     let c = oc.dot(oc) - radius * radius;
     let discriminant = b*b -4.0 *a*c; //PYTHAG JUMPSCARE!!!! HOLY SHIT I USED IT IN REAL LIFE BABY!!!!!!!
-    return discriminant >= 0.0
+    if discriminant < 0. {
+         -1.0
+    } else {
+       (-b - discriminant.sqrt() /(2.0 *a))
+    }
 }
