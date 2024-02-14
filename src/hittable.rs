@@ -15,7 +15,9 @@ pub struct HitRecord {
     front_face: bool,
 }
 
+// NOTE: I don't need a hittable list because rust just has vectors
 impl<T> Hittable for Vec<T>
+
 where
     T: Hittable + Sync,
 {
@@ -32,6 +34,11 @@ where
         hit_record
     }
 }
+impl Hittable for Box<dyn Hittable + Sync> {
+    fn hit(&self, ray: &Ray, interval: Range<f64>) -> Option<HitRecord> {
+        (**self).hit(ray, interval)
+    }
+}
 
 impl HitRecord {
     pub fn new(point: DVec3, normal: DVec3, t: f64, u: f64, v: f64, front_face: bool) -> Self {
@@ -46,14 +53,13 @@ impl HitRecord {
     }
     pub fn new_with_front_face_calc(
         point: DVec3,
-        normal: DVec3,
+        outward_normal: DVec3,
         t: f64,
         u: f64,
         v: f64,
         ray: &Ray,
-        outward_normal: &DVec3,
     ) -> Self {
-        let (normal, front_face) = HitRecord::calc_face_normal(ray, outward_normal);
+        let (normal, front_face) = HitRecord::set_face_normal(ray, &outward_normal);
         HitRecord {
             point,
             normal,
@@ -64,7 +70,7 @@ impl HitRecord {
         }
     }   
     ///Function that calculates whether the normal is front or rear facing, returns the normal and a bool, true if front face and false if otherwise
-    pub fn calc_face_normal(ray: &Ray, outward_normal: &DVec3) -> (DVec3, bool) {
+    pub fn set_face_normal(ray: &Ray, outward_normal: &DVec3) -> (DVec3, bool) {
         let front_face = ray.direction.dot(*outward_normal) < 0.;
         let normal = if front_face {
             *outward_normal

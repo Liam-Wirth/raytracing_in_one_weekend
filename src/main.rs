@@ -1,6 +1,7 @@
 // TODO: Maybe rewrite the code to use my own vec3 implementation instead of DVec3
 pub mod hittable;
 pub mod objects;
+use hittable::Hittable;
 use indicatif::ProgressIterator;
 
 use glam::DVec3;
@@ -43,7 +44,29 @@ fn main() -> io::Result<()> {
                 origin: CAMERA_CENTER,
                 direction: ray_direction,
             };
-            let pixel_color = ray.color() * 255.0;
+            let mut world:  Vec<Box<dyn Hittable + Sync>> = Vec::new();
+            world.push(Box::new(Sphere::new(DVec3::new(0.0, 0.0, -1.0), 0.5)));
+            world.push(Box::new(Sphere::new(DVec3::new(4.0, 3.0, -3.0), 0.5)));
+            world.push(Box::new(Sphere::new(DVec3::new(9.0, -2.0, -5.0), 0.1)));
+            // Add 30 small spheres
+            for i in 0..30 {
+                let x = i as f64 * 0.5;
+                let y = i as f64 * 0.2;
+                let z = i as f64 * -1.0;
+                let radius = 0.1 + i as f64 * 0.05;
+                world.push(Box::new(Sphere::new(DVec3::new(x, y, z), radius)));
+            }
+            world.push(Box::new(Sphere::new(DVec3::new(6.0, 3.0, -20.0), 1.5)));
+
+            // Add 30 small spheres
+            for i in 0..30 {
+                let x = i as f64 * 0.5;
+                let y = i as f64 * 0.2;
+                let z = i as f64 * -1.0;
+                let radius = 0.1 + i as f64 * 0.05;
+                world.push(Box::new(Sphere::new(DVec3::new(x, y, z), radius)));
+            }
+            let pixel_color = ray.color(&world) * 255.0;
             format!("{} {} {}", pixel_color.x, pixel_color.y, pixel_color.z)
         })
         .join("\n");
@@ -71,19 +94,19 @@ impl Ray {
     fn at(&self, t: f64) -> DVec3 {
         self.origin + t * self.direction
     }
-    fn color(&self) -> DVec3 {
-//        let t = Sph(&DVec3::new(0.0, 0.0, -10.0), 4., self); // Dereference the &self parameter
-        let j = hit_sphere(&DVec3::new(0.4, 1.0, -2.), 0.25, self);
-        if t > 0. {
-            let N = (self.at(t) - DVec3::new(0.0, 0.0, -10.0)).normalize();
-            return 0.5 * (N + 1.0);
-        };
+    fn color<T>(&self, world: &T)  -> DVec3 
+    where T:  Hittable,
+    {
+        if let Some(rec) = world.hit(self, 0.0..f64::INFINITY) {
+            return 0.5 * (rec.normal + DVec3::new(1.0, 1.0, 1.0));
+        }
         
         let unit_direction: DVec3 = self.direction.normalize();
         let a = 0.5 * (unit_direction.y + 1.0);
         return (1.0 - a) * DVec3::new(1.0, 1.0, 1.0) + a * DVec3::new(0.5, 0.7, 1.0);
     }
 }
+
 
 
 
