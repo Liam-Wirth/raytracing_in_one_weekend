@@ -1,9 +1,11 @@
 // TODO: Maybe rewrite the code to use my own vec3 implementation instead of DVec3
 pub mod hittable;
+pub mod objects;
 use indicatif::ProgressIterator;
 
 use glam::DVec3;
 use itertools::Itertools;
+use objects::sphere::Sphere;
 use std::{fs, io};
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
 
@@ -70,7 +72,7 @@ impl Ray {
         self.origin + t * self.direction
     }
     fn color(&self) -> DVec3 {
-        let t = hit_sphere(&DVec3::new(0.0, 0.0, -10.0), 4., self); // Dereference the &self parameter
+//        let t = Sph(&DVec3::new(0.0, 0.0, -10.0), 4., self); // Dereference the &self parameter
         let j = hit_sphere(&DVec3::new(0.4, 1.0, -2.), 0.25, self);
         if t > 0. {
             let N = (self.at(t) - DVec3::new(0.0, 0.0, -10.0)).normalize();
@@ -82,16 +84,6 @@ impl Ray {
         return (1.0 - a) * DVec3::new(1.0, 1.0, 1.0) + a * DVec3::new(0.5, 0.7, 1.0);
     }
 }
-fn hit_sphere(center: &DVec3, radius: f64, ray: &Ray) -> f64 {
-    let oc: DVec3 = ray.origin - *center;
-    let a = ray.direction.length_squared();
-    let half_b =  oc.dot(ray.direction);
-    let c = oc.dot(oc) - radius * radius;
-    let discriminant = half_b * half_b - ( a * c); //PYTHAG JUMPSCARE!!!! HOLY SHIT I USED IT IN REAL LIFE BABY!!!!!!!
-    if discriminant < 0. {
-        -1.0
-    } else {
-        (-half_b - discriminant.sqrt() / (a))
-    }
-}
+
+
 
