@@ -1,13 +1,17 @@
+#![allow(dead_code)]
+
 use std::default;
 
 use crate::{
     hittable::{self, Hittable},
     Ray,
 };
+
 use glam::DVec3;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
 use std::{fs, io};
+use rand::Rng;
 //pub const ASPECT_RATIO: f64 = 16.0 / 9.0;
 
 //pub const IMAGE_WIDTH: u32 = 480;
@@ -25,6 +29,7 @@ use std::{fs, io};
 //pub const VIEWPORT_U: DVec3 = DVec3::new(VIEWPORT_WIDTH, 0.0, 0.0);
 //pub const VIEWPORT_V: DVec3 = DVec3::new(0.0, -VIEWPORT_HEIGHT, 0.0);
 
+
 pub(crate) struct Camera {
     image_width: u32,
     image_height: u32,
@@ -35,6 +40,7 @@ pub(crate) struct Camera {
     pixel_delta_v: DVec3,
     pixel100_loc: DVec3,
     viewport_upper_left: DVec3,
+    sample_count: u32,
 }
 
 impl Camera {
@@ -67,7 +73,11 @@ impl Camera {
             pixel_delta_v,
             pixel100_loc,
             viewport_upper_left,
-        }
+            sample_count: 100,
+      }
+    }
+    fn change_sample_count(&mut self, new_sample_count: u32) {
+        self.sample_count = new_sample_count;
     }
     pub fn calculate_viewport_upper_left(&self) -> DVec3 {
         self.center - 0.5 * (self.pixel_delta_u + self.pixel_delta_v)
@@ -97,16 +107,16 @@ impl Camera {
             .cartesian_product(0..self.image_width)
             .progress_count(self.image_height as u64 * self.image_width as u64)
             .map(|(y, x)| {
-                let pixel_center = self.pixel100_loc
-                    + (x as f64 * self.pixel_delta_u)
-                    + (y as f64 * self.pixel_delta_v);
-                let ray_direction = pixel_center - self.center;
-                let ray = Ray {
-                    origin: self.center,
-                    direction: ray_direction,
-                };
-                let pixel_color = Self::ray_color(&self, &ray, world) * 255.0;
-                format!("{} {} {}", pixel_color.x, pixel_color.y, pixel_color.z)
+                let scale_factor = (self.sample_count as f64).recip();
+                let multisampled_pixel_col = (0..self.sample_count).into_iter().map(|_| {
+                    self.get_ray(x as i32, y as i32).color(world) * (self.max_value as f64) * scale_factor
+                }).sum::<DVec3>(); 
+             format!(
+                "{} {} {}",
+                (multisampled_pixel_col.x as u32),
+                (multisampled_pixel_col.y as u32) ,
+                (multisampled_pixel_col.z as u32),
+             )
             })
             .join("\n");
 
@@ -119,5 +129,20 @@ impl Camera {
                 self.image_width, self.image_height, self.max_value, pixels
             ),
         )
+    }
+    fn get_ray(&self, i: i32, j: i32) -> Ray {
+        let pixel_center = self.pixel100_loc + (i as f64 * self.pixel_delta_u) + (j as f64 * self.pixel_delta_v);
+        let pixel_sample = pixel_center + self.pixel_sample_square();
+        
+        Ray {
+            origin: self.center,
+            direction: pixel_sample - self.center,
+        }
+    }
+    fn pixel_sample_square(&self) -> DVec3 {
+        let mut rng = rand::thread_rng();
+        let px = -0.5 + rng.gen::<f64>();
+        let py = -0.5 + rng.gen::<f64>();
+        px * self.pixel_delta_u + py * self.pixel_delta_v
     }
 }
