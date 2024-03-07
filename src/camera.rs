@@ -10,8 +10,8 @@ use crate::{
 use glam::DVec3;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
-use std::{fs, io};
 use rand::Rng;
+use std::{fs, io};
 //pub const ASPECT_RATIO: f64 = 16.0 / 9.0;
 
 //pub const IMAGE_WIDTH: u32 = 480;
@@ -29,7 +29,6 @@ use rand::Rng;
 //pub const VIEWPORT_U: DVec3 = DVec3::new(VIEWPORT_WIDTH, 0.0, 0.0);
 //pub const VIEWPORT_V: DVec3 = DVec3::new(0.0, -VIEWPORT_HEIGHT, 0.0);
 
-
 pub(crate) struct Camera {
     image_width: u32,
     image_height: u32,
@@ -41,6 +40,7 @@ pub(crate) struct Camera {
     pixel100_loc: DVec3,
     viewport_upper_left: DVec3,
     sample_count: u32,
+    max_depth: u32, //we are using recursion, and need to limit the depth of that recursion
 }
 
 impl Camera {
@@ -74,7 +74,8 @@ impl Camera {
             pixel100_loc,
             viewport_upper_left,
             sample_count: 100,
-      }
+            max_depth: 40,
+        }
     }
     fn change_sample_count(&mut self, new_sample_count: u32) {
         self.sample_count = new_sample_count;
@@ -86,18 +87,13 @@ impl Camera {
     where
         T: Hittable,
     {
-        if let Some(rec) =
-            world.hit(&ray, (0.)..f64::INFINITY)
-        {
-            return 0.5
-                * (rec.normal + DVec3::new(1., 1., 1.));
+        if let Some(rec) = world.hit(&ray, (0.)..f64::INFINITY) {
+            return 0.5 * (rec.normal + DVec3::new(1., 1., 1.));
         }
 
-        let unit_direction: DVec3 =
-            ray.direction.normalize();
+        let unit_direction: DVec3 = ray.direction.normalize();
         let a = 0.5 * (unit_direction.y + 1.0);
-        return (1.0 - a) * DVec3::new(1.0, 1.0, 1.0)
-            + a * DVec3::new(0.5, 0.7, 1.0);
+        return (1.0 - a) * DVec3::new(1.0, 1.0, 1.0) + a * DVec3::new(0.5, 0.7, 1.0);
     }
     pub fn render_to_disk<T>(&self, world: &T) -> io::Result<()>
     where
@@ -108,15 +104,21 @@ impl Camera {
             .progress_count(self.image_height as u64 * self.image_width as u64)
             .map(|(y, x)| {
                 let scale_factor = (self.sample_count as f64).recip();
-                let multisampled_pixel_col = (0..self.sample_count).into_iter().map(|_| {
-                    self.get_ray(x as i32, y as i32).color(world) * (self.max_value as f64) * scale_factor
-                }).sum::<DVec3>(); 
-             format!(
-                "{} {} {}",
-                (multisampled_pixel_col.x as u32),
-                (multisampled_pixel_col.y as u32) ,
-                (multisampled_pixel_col.z as u32),
-             )
+                let multisampled_pixel_col = (0..self.sample_count)
+                    .into_iter()
+                    .map(|_| {
+                        self.get_ray(x as i32, y as i32)
+                            .color(self.max_depth as i32, world)
+                            * (self.max_value as f64)
+                            * scale_factor
+                    })
+                    .sum::<DVec3>();
+                format!(
+                    "{} {} {}",
+                    (multisampled_pixel_col.x as u32),
+                    (multisampled_pixel_col.y as u32),
+                    (multisampled_pixel_col.z as u32),
+                )
             })
             .join("\n");
 
@@ -131,9 +133,10 @@ impl Camera {
         )
     }
     fn get_ray(&self, i: i32, j: i32) -> Ray {
-        let pixel_center = self.pixel100_loc + (i as f64 * self.pixel_delta_u) + (j as f64 * self.pixel_delta_v);
+        let pixel_center =
+            self.pixel100_loc + (i as f64 * self.pixel_delta_u) + (j as f64 * self.pixel_delta_v);
         let pixel_sample = pixel_center + self.pixel_sample_square();
-        
+
         Ray {
             origin: self.center,
             direction: pixel_sample - self.center,

@@ -1,4 +1,5 @@
 
+
 //naw
 pub struct Vec3 {
     x: f64,

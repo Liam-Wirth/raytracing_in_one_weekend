@@ -87,4 +87,5 @@ impl HitRecord {
     types, so we'll go for less work and put the determination at geometry time. 
     This is simply a matter of preference, and you'll see both implementations in the literature.  
     */
+    
 }
